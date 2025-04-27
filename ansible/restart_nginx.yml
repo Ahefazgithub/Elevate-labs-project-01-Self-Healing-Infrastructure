@@ -1,0 +1,11 @@
+
+
+---
+- name: Restart Nginx when Down
+  hosts: localhost
+  tasks:
+    - name: Restart Nginx
+      become: yes
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
