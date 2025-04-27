@@ -1,118 +1,178 @@
+Self-Healing Infrastructure with Prometheus, Alertmanager & Ansible
 
 
-Report on Self-Healing Infrastructure with Prometheus, Alertmanager & Ansible
+Introduction
 
+In today's cloud-native environments, maintaining high availability and ensuring service resilience is crucial. Automation plays a key role in achieving these goals. This project demonstrates how to create a self-healing infrastructure using Prometheus for monitoring, Alertmanager for alerting, and Ansible for automating remediation actions. The project uses an EC2 instance running Ubuntu as the base environment, with NGINX as a sample service.
 
 
-1. Introduction:
+The aim of this project is to automatically detect service failures (like NGINX going down) and recover them by executing an Ansible playbook that restarts the service. This process is fully automated and managed by Prometheus, Alertmanager, and Ansible.
 
 
-In modern infrastructure management, ensuring high availability and minimizing downtime are critical. A self-healing infrastructure automatically detects and recovers from failures without human intervention, increasing reliability and reducing operational overhead. This report discusses the design and implementation of a self-healing infrastructure using Prometheus, Alertmanager, and Ansible to monitor and automatically recover from failures in a service (NGINX in this case). The system is designed to automatically restart NGINX if it goes down, based on alerts triggered by Prometheus and handled by Alertmanager.
 
+Abstract
 
-2. Abstract:
+This project integrates monitoring and automation tools to create a self-healing infrastructure. By monitoring the NGINX service with Prometheus, we can automatically restart the service if it fails, reducing downtime and minimizing manual intervention. The key components of this project include:
 
-The project aims to build a self-healing infrastructure where Prometheus monitors the health of a service (NGINX), and upon failure detection, Alertmanager triggers a webhook that executes an Ansible playbook to automatically restart the service. This mechanism is entirely automated and ensures minimal downtime in case of service failures. The following report details the tools used, the steps involved in implementing the system, and the outcomes of the project.
 
+    Prometheus: Monitors the NGINX service and collects metrics.
 
+    Alertmanager: Sends alerts when the service fails.
 
-3. Tools Used:
+    Ansible: Executes an automation playbook to restart the service.
 
-The following tools were utilized to build the self-healing infrastructure:
+    Webhook: Used to trigger the Ansible playbook from Alertmanager.
 
-    Prometheus: An open-source monitoring and alerting toolkit designed to collect and store metrics from various sources. It was used to monitor the health and performance of NGINX by scraping data from the NGINX Prometheus Exporter.
 
-    NGINX Prometheus Exporter: A tool that exposes NGINX metrics to Prometheus. It scrapes NGINX's /stub_status endpoint to collect data like uptime and request counts.
 
-    Alertmanager: A component of Prometheus used to manage alerts. It processes alerts sent from Prometheus and can trigger actions like sending notifications or running a webhook.
+The solution uses an EC2 instance running Ubuntu, along with Docker to host the NGINX exporter for Prometheus.
 
-    Ansible: A configuration management tool used to automate the process of restarting NGINX. If a failure is detected, Ansible automatically restarts the NGINX service.
 
-    Docker (for NGINX Prometheus Exporter): Used to containerize the NGINX Prometheus Exporter, making it easier to deploy and run on the system.
 
+Tools Used
 
+    Prometheus: Open-source monitoring and alerting toolkit.
 
+    Alertmanager: Handles alerts sent by Prometheus and manages the notification and remediation process.
 
-4. Steps Involved in Building the Project:
+    Ansible: Automation tool for managing configuration and running tasks such as restarting services.
 
+    NGINX: Web server used as a sample service for monitoring.
 
+    NGINX Prometheus Exporter: Exports metrics from the NGINX server to be scraped by Prometheus.
 
-The project was built through the following steps:
+    Docker: Used to run the NGINX Prometheus Exporter container.
 
+    EC2 Instance (Ubuntu): Cloud-based virtual machine used for deploying the solution.
 
-    
-    Set up NGINX Service:
+    Webhook: A method used to trigger the Ansible playbook from Alertmanager.
 
 
-        Installed NGINX on an Ubuntu EC2 instance to serve as the sample service to monitor.
 
-        Configured NGINX to expose the /stub_status endpoint for Prometheus to scrape.
+Steps Involved in Building the Project
 
 
-    Install Prometheus:
 
+1. Setting Up Prometheus
 
-        Installed and configured Prometheus to monitor system metrics and the NGINX service.
 
-        Configured Prometheus to scrape metrics from the NGINX Prometheus Exporter at localhost:9113.
+    Install Prometheus on the EC2 instance to monitor the NGINX service.
 
+    Configure Prometheus by editing the prometheus.yml file to scrape NGINX metrics from a local endpoint.
 
-    Install and Configure NGINX Prometheus Exporter:
+    Example configuration:
 
+    scrape_configs:
+      - job_name: "nginx_exporter"
+        static_configs:
+          - targets: ["localhost:9113"]
 
-        Initially missed installing the NGINX Prometheus Exporter. Afterward, it was installed using Docker to expose NGINX metrics to Prometheus.
 
-        Configured Prometheus to scrape data from the NGINX Prometheus Exporter.
+2. Setting Up Alertmanager
 
 
-    Set Up Alertmanager:
+    Install Alertmanager on the EC2 instance.
 
+    Configure Alertmanager to send notifications when an alert is triggered. For simplicity, it is set to send alerts via webhook.
 
-        Configured Alertmanager to handle alerts and trigger actions when a service failure occurs (e.g., NGINX going down).
+    Example configuration in alertmanager.yml:
 
-        Alertmanager was configured to send alerts to a Webhook, but the implementation of the webhook service is pending.
+    route:
+      receiver: 'webhook'
+    receivers:
+      - name: 'webhook'
+        webhook_configs:
+          - url: 'http://localhost:5000/webhook'
 
 
-    Create Alerting Rules in Prometheus:
+3. Setting Up NGINX Exporter
 
-    
-        Configured Prometheus alerting rules to detect when NGINX is down, triggering an alert if the up{job="nginx"} metric equals 0 for more than 1 minute.
 
-    Develop Ansible Playbook:
+    Install NGINX Prometheus Exporter using Docker to export NGINX metrics.
 
+    The exporter collects statistics about NGINX and exposes them to Prometheus.
 
-        Wrote an Ansible playbook to automatically restart NGINX if it goes down.
+    Example Docker command to run the exporter:
 
-        The playbook used the service module to restart NGINX.
+    docker run -d -p 9113:9113 --name nginx-prometheus-exporter nginx/nginx-prometheus-exporter
 
-    Integrate Webhook for Ansible Execution:
 
+4. Configuring Ansible for Automation
 
-        Outlined the setup of a Webhook that will receive alerts from Alertmanager and trigger the Ansible playbook to restart NGINX.
 
+    Install Ansible on the EC2 instance to execute the automation playbook.
 
-    Testing:
+    Write an Ansible playbook that restarts the NGINX service in case of failure. For example, restart_nginx.yml:
 
+    ---
+    - name: Restart NGINX if it fails
+      hosts: localhost
+      tasks:
+        - name: Restart NGINX
+          service:
+            name: nginx
+            state: restarted
 
-        The system was tested by manually stopping NGINX and verifying that Prometheus detected the failure, Alertmanager sent the alert, and the webhook triggered the Ansible playbook to restart NGINX.
 
 
+5. Setting Up Webhook
 
-5. Conclusion:
 
 
+    Create a Python webhook service to listen for alerts from Alertmanager.
 
-The self-healing infrastructure setup with Prometheus, Alertmanager, and Ansible was successfully implemented to automatically monitor and recover from NGINX service failures. After completing the project, the system was able to detect when NGINX went down, trigger alerts through Prometheus and Alertmanager, and use Ansible to restart the service without manual intervention.
+    The webhook will trigger the Ansible playbook to restart the NGINX service when an alert is received.
 
-The system demonstrates the potential for automating recovery processes in production environments, ensuring minimal downtime and improved service availability. However, there are a few pending tasks such as completing the Webhook service that will trigger the Ansible playbook. Once these pieces are in place, the system will be fully automated and functional for self-healing in real-world use cases.
+    Example webhook script:
 
+    from flask import Flask, request
+    import subprocess
 
+    app = Flask(__name__)
 
-6.  YML and Code Files:
+    @app.route('/webhook', methods=['POST'])
+    def webhook():
+        data = request.json
+        if data['status'] == 'firing':
+            subprocess.run(['ansible-playbook', 'restart_nginx.yml'])
+        return 'OK', 200
 
+    if __name__ == '__main__':
+        app.run(debug=True, host='0.0.0.0', port=5000)
 
 
-Prometheus Configuration (prometheus.yml):
+
+6. Testing the Self-Healing Process
+
+
+
+    Stop NGINX manually to simulate a failure.
+
+    Verify that Prometheus detects the failure, triggers an alert via Alertmanager, which then calls the webhook, and the webhook runs the Ansible playbook to restart NGINX automatically.
+
+
+
+
+7. Docker Setup for NGINX Prometheus Exporter
+
+
+
+    The NGINX Prometheus exporter was installed and configured using Docker to run as a container, enabling the monitoring of NGINX without direct installation on the host machine.
+
+
+
+
+
+Conclusion
+
+
+
+
+This project successfully demonstrates how to build a self-healing infrastructure using Prometheus, Alertmanager, and Ansible. By monitoring the NGINX service with Prometheus and utilizing Alertmanager to trigger an Ansible playbook via a webhook, we have automated the recovery of NGINX if it fails, ensuring minimal downtime and intervention.
+
+This self-healing mechanism can be adapted to other services as well, offering a robust and scalable solution for infrastructure management. The integration of monitoring, alerting, and automation enhances the resilience of cloud-native applications.
+Configuration Files and Scripts
+prometheus.yml
 
 global:
   scrape_interval: 15s
@@ -122,71 +182,37 @@ alerting:
   alertmanagers:
     - static_configs:
         - targets:
-          # - alertmanager:9093
+          - alertmanager:9093
 
 rule_files:
-  # - "first_rules.yml"
-  # - "second_rules.yml"
-  # - "alert_rules.yml"
+  - "alert_rules.yml"
 
 scrape_configs:
-  - job_name: "node_exporter"
-    static_configs:
-      - targets: ["localhost:9100"]
-
-  - job_name: "nginx"
+  - job_name: "nginx_exporter"
     static_configs:
       - targets: ["localhost:9113"]
 
+alertmanager.yml
 
+route:
+  receiver: 'webhook'
+receivers:
+  - name: 'webhook'
+    webhook_configs:
+      - url: 'http://localhost:5000/webhook'
 
-
-Prometheus Alerting Rule (alert_rules.yml):
-
-
-
-
-groups:
-- name: nginx_alerts
-  rules:
-  - alert: NGINXDown
-    expr: up{job="nginx"} == 0
-    for: 1m
-    labels:
-      severity: critical
-    annotations:
-      summary: "NGINX is down"
-
-
-
-
-Ansible Playbook (restart_nginx.yml):
-
-
-
+restart_nginx.yml
 
 ---
-- name: Restart NGINX if it goes down
+- name: Restart NGINX if it fails
   hosts: localhost
-  become: yes
   tasks:
     - name: Restart NGINX
       service:
         name: nginx
         state: restarted
 
-
-
-7.Docker Command to Run NGINX Prometheus Exporter:
-
-docker run -d -p 9113:9113 --name nginx-prometheus-exporter \
-  -e NGINX_HOST=localhost \
-  -e NGINX_PORT=80 \
-  nginxinc/nginx-prometheus-exporter
-
-
-Webhook for Ansible Playbook Trigger (Python Flask Example):
-
+Webhook Python Script (webhook.py)
 
 from flask import Flask, request
 import subprocess
@@ -196,12 +222,11 @@ app = Flask(__name__)
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
-    if 'alert' in data:
-        # Trigger Ansible playbook to restart NGINX
-        subprocess.run(["ansible-playbook", "restart_nginx.yml"])
-    return "Webhook received!", 200
+    if data['status'] == 'firing':
+        subprocess.run(['ansible-playbook', 'restart_nginx.yml'])
+    return 'OK', 200
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
 
 
